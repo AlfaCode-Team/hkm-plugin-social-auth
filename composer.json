@@ -1,0 +1,15 @@
+{
+    "name": "alfacode-team/hkm-plugin-social-auth",
+    "description": "HKM Kernel plugin providing 'auth.social'.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["hkm-kernel", "plugin", "php", "auth.social"],
+    "require": {
+        "php": ">=8.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Plugins\\SocialAuth\\": ""
+        }
+    }
+}
