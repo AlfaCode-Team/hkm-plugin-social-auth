@@ -137,16 +137,46 @@ final class SocialAuthController extends ApiController
         ];
     }
 
-    /** @return array{id:string,email:?string,name:?string,nickname:?string,avatar:?string} */
+    /** @return array{id:string,email:?string,email_verified:bool,name:?string,nickname:?string,avatar:?string} */
     private function profileArray(SocialUser $user): array
     {
         return [
-            'id'       => (string) $user->getId(),
-            'email'    => $user->getEmail(),
-            'name'     => $user->getName(),
-            'nickname' => $user->getNickname(),
-            'avatar'   => $user->getAvatar(),
+            'id'             => (string) $user->getId(),
+            'email'          => $user->getEmail(),
+            // This flag used to be dropped here, so the service linked by email
+            // alone — an attacker who set a victim's address as their UNVERIFIED
+            // provider email was linked straight onto the victim's account.
+            'email_verified' => self::providerVerifiedEmail($user->getRaw()),
+            'name'           => $user->getName(),
+            'nickname'       => $user->getNickname(),
+            'avatar'         => $user->getAvatar(),
         ];
+    }
+
+    /**
+     * Whether the PROVIDER asserts the email is verified.
+     *
+     * Defaults to FALSE for any provider that does not say so. A provider we do
+     * not understand must never be trusted to have verified anything — silence
+     * is not an assertion.
+     *
+     * @param array<string, mixed> $raw the provider's own payload
+     */
+    private static function providerVerifiedEmail(array $raw): bool
+    {
+        foreach (['email_verified', 'verified_email', 'verified'] as $key) {
+            if (!\array_key_exists($key, $raw)) {
+                continue;
+            }
+            $value = $raw[$key];
+
+            // Google sends a real bool; Apple sends the string "true".
+            return $value === true
+                || $value === 1
+                || (\is_string($value) && \strtolower($value) === 'true');
+        }
+
+        return false;
     }
 
     private function socialFailure(ServiceException $e): Response
@@ -154,6 +184,9 @@ final class SocialAuthController extends ApiController
         $message = match ($e->getMessage()) {
             'social_auth.profile.missing_email' =>
                 'This provider account has no verified email — sign in with a provider that shares one, or register first.',
+            'social_auth.email.unverified' =>
+                'Your provider has not verified this email address. Verify it with them and try again, '
+                . 'or sign in with your password and link the account from your profile.',
             default => 'Social sign-in failed. Please try again.',
         };
 

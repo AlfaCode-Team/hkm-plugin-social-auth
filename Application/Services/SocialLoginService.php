@@ -34,7 +34,7 @@ final class SocialLoginService
     }
 
     /**
-     * @param array{id:string,email:?string,name:?string,nickname:?string,avatar:?string} $profile
+     * @param array{id:string,email:?string,email_verified?:bool,name:?string,nickname:?string,avatar:?string} $profile
      */
     public function resolveUser(string $provider, array $profile): UserDTO
     {
@@ -67,7 +67,21 @@ final class SocialLoginService
             );
         }
 
-        // 2 — link to the existing account behind the provider-verified email.
+        // 2 — email-based linking is an ACCOUNT TAKEOVER vector unless the
+        // provider asserts the address is verified. Without this check, anyone
+        // who could set a victim's address as their own unverified provider
+        // email was linked onto the victim's account on first sign-in.
+        //
+        // The identity link above (step 1) is unaffected: once a provider user
+        // id is bound to an account, that binding is the authority.
+        if (($profile['email_verified'] ?? false) !== true) {
+            throw new ServiceException(
+                'social_auth.email.unverified',
+                layer:   'service.social_auth',
+                context: ['provider' => $provider],
+            );
+        }
+
         $user = $this->users->findByIdentifier($email);
 
         // 3 — first sign-in: create the account.

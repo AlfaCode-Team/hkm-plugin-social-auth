@@ -273,15 +273,32 @@ abstract class AbstractProvider implements ProviderContract
     }
 
     /**
+     * A cryptographically-secure random token of $length characters.
+     *
+     * Replaces calls to str_random(), which was undefined here — every call site
+     * (the OAuth state value and the PKCE verifier) fataled. Both are security
+     * tokens, so this uses random_bytes rather than anything seeded.
+     */
+    protected static function randomToken(int $length): string
+    {
+        // 2 hex chars per byte; trim to the requested length.
+        return substr(bin2hex(random_bytes((int) ceil($length / 2))), 0, $length);
+    }
+
+    /**
      * Determine if the current request / session has a mismatching "state".
      *
      * @return bool
      */
     protected function hasInvalidState()
     {
-
-        if(SUPPORTED_SOCIAL_STATELESS_ALLOW) return false;
-        
+        // NOTE: there used to be an unconditional
+        //     if (SUPPORTED_SOCIAL_STATELESS_ALLOW) return false;
+        // here. The constant is defined nowhere in the codebase, so the browser
+        // flow fataled — and had anyone "fixed" that by defining it truthy, the
+        // OAuth state check would have been silently disabled for every
+        // provider, making login CSRF trivial. There is no kill switch for this
+        // check: stateless mode is the only sanctioned bypass, below.
         if ($this->isStateless()) {
             return false;
         }
@@ -516,7 +533,7 @@ abstract class AbstractProvider implements ProviderContract
      */
     protected function getState()
     {
-        return str_random(40);
+        return self::randomToken(40);
     }
 
     /**
@@ -548,7 +565,7 @@ abstract class AbstractProvider implements ProviderContract
      */
     protected function getCodeVerifier()
     {
-        return str_random(96);
+        return self::randomToken(96);
     }
 
     /**
