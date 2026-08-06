@@ -79,7 +79,19 @@ final class ProviderTokenGateway
 
         // tokeninfo already verified the signature; we must still pin the
         // audience to OUR client id or any Google app's token would sign in.
-        if ($this->googleClientId !== '' && (string) ($claims['aud'] ?? '') !== $this->googleClientId) {
+        //
+        // FAIL CLOSED. This was `$this->googleClientId !== '' && ...`, so an
+        // unset GOOGLE_CLIENT_ID skipped the check entirely and a token minted
+        // for ANY other Google app was accepted — the exact attack the comment
+        // above describes. A missing client id means we cannot validate the
+        // audience, which is a reason to reject, not to wave it through.
+        if ($this->googleClientId === '') {
+            throw new GatewayException(
+                'GOOGLE_CLIENT_ID is not configured; cannot verify the id_token audience.',
+                layer: 'gateway.social_auth.google',
+            );
+        }
+        if ((string) ($claims['aud'] ?? '') !== $this->googleClientId) {
             throw new GatewayException('Google id_token audience mismatch.', layer: 'gateway.social_auth.google');
         }
 
@@ -145,7 +157,15 @@ final class ProviderTokenGateway
         if ((string) ($claims['iss'] ?? '') !== self::APPLE_ISSUER) {
             throw new GatewayException('Apple identity_token issuer mismatch.', layer: 'gateway.social_auth.apple');
         }
-        if ($this->appleClientId !== '' && (string) ($claims['aud'] ?? '') !== $this->appleClientId) {
+        // FAIL CLOSED — see the Google path above. An unset APPLE_CLIENT_ID
+        // used to skip audience validation entirely.
+        if ($this->appleClientId === '') {
+            throw new GatewayException(
+                'APPLE_CLIENT_ID is not configured; cannot verify the identity_token audience.',
+                layer: 'gateway.social_auth.apple',
+            );
+        }
+        if ((string) ($claims['aud'] ?? '') !== $this->appleClientId) {
             throw new GatewayException('Apple identity_token audience mismatch.', layer: 'gateway.social_auth.apple');
         }
         if ((string) ($claims['sub'] ?? '') === '') {
