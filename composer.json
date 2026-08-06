@@ -10,7 +10,12 @@
         "auth.social"
     ],
     "require": {
-        "php": ">=8.4"
+        "php": ">=8.4",
+        "alfacode-team/php-service-platform": "dev-master",
+        "alfacode-team/hkm-plugin-auth": "dev-main",
+        "alfacode-team/hkm-plugin-database": "dev-main",
+        "alfacode-team/hkm-plugin-http-client": "dev-main",
+        "alfacode-team/hkm-plugin-user": "dev-main"
     },
     "autoload": {
         "psr-4": {
@@ -19,5 +24,52 @@
         "files": [
             "Socialite/Support/helpers.php"
         ]
-    }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11 || ^12 || ^13"
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/AlfaCode-Team/hkm-kernel"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/AlfaCode-Team/hkm-plugin-auth"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/AlfaCode-Team/hkm-plugin-database"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/AlfaCode-Team/hkm-plugin-http-client"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/AlfaCode-Team/hkm-plugin-user"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/AlfaCode-Team/http"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/AlfaCode-Team/php-io-cli"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/AlfaCode-Team/Let-Migrate"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/hakrichTech/bindIt"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/hakrichTech/type-alias"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
