@@ -1,6 +1,7 @@
 {
     "name": "social-auth",
     "version": "1.0.0",
+    "kernel": "^1.0",
     "solves": "auth.social",
     "type": "module",
 
