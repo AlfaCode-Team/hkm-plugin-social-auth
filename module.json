@@ -1,17 +1,18 @@
 {
     "name": "social-auth",
     "version": "1.0.1",
-    "kernel": "^1.0",
+    "kernel": "^1.2",
     "solves": "auth.social",
     "type": "module",
 
     "requires": ["database.management", "user.management", "auth.identity", "http.client"],
     "exposes": ["Plugins\\SocialAuth\\API\\Contracts\\SocialAuthServiceContract"],
 
+    "routePrefix": "/auth/social",
     "routes": [
-        { "method": "GET",  "path": "/auth/social/{driver}",          "handler": "Plugins\\SocialAuth\\Infrastructure\\Http\\Controllers\\SocialAuthController@redirect", "filters": ["throttle:20,1"] },
-        { "method": "GET",  "path": "/auth/social/{driver}/callback", "handler": "Plugins\\SocialAuth\\Infrastructure\\Http\\Controllers\\SocialAuthController@callback", "filters": ["throttle:20,1"] },
-        { "method": "POST", "path": "/auth/social/{driver}/token",    "handler": "Plugins\\SocialAuth\\Infrastructure\\Http\\Controllers\\SocialAuthController@token",    "filters": ["throttle:10,1"] }
+        { "method": "GET",  "path": "/{driver}",          "handler": "Plugins\\SocialAuth\\Infrastructure\\Http\\Controllers\\SocialAuthController@redirect", "filters": ["throttle:20,1"] },
+        { "method": "GET",  "path": "/{driver}/callback", "handler": "Plugins\\SocialAuth\\Infrastructure\\Http\\Controllers\\SocialAuthController@callback", "filters": ["throttle:20,1"] },
+        { "method": "POST", "path": "/{driver}/token",    "handler": "Plugins\\SocialAuth\\Infrastructure\\Http\\Controllers\\SocialAuthController@token",    "filters": ["throttle:10,1"] }
     ],
     "emits": [],
     "listens": [],
