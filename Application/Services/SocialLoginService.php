@@ -35,8 +35,12 @@ final class SocialLoginService
 
     /**
      * @param array{id:string,email:?string,email_verified?:bool,name:?string,nickname:?string,avatar:?string} $profile
+     * @param string $tenantId the request's resolved tenant ('' when none). It is
+     *                         forwarded on user.registered exactly as a password
+     *                         self-signup does, so a first sign-in on a tenant host
+     *                         is given a membership there.
      */
-    public function resolveUser(string $provider, array $profile): UserDTO
+    public function resolveUser(string $provider, array $profile, string $tenantId = ''): UserDTO
     {
         $providerUserId = trim((string) ($profile['id'] ?? ''));
         if ($providerUserId === '') {
@@ -50,7 +54,10 @@ final class SocialLoginService
         // 1 — already linked.
         $userId = $this->identities->findUserId($provider, $providerUserId);
         if ($userId !== null) {
-            $user = $this->users->find($userId);
+            // isAuth: true — this runs BEFORE anyone is signed in. Without it
+            // find() applies its self-or-permission gate to a guest Identity and
+            // throws user.unauthenticated, so every RETURNING social user failed.
+            $user = $this->users->find($userId, false, true);
             if ($user !== null) {
                 // Refresh the provider snapshot (best-effort).
                 $this->identities->link($provider, $providerUserId, $userId, $email, $name, $avatar);
@@ -85,7 +92,7 @@ final class SocialLoginService
         $user = $this->users->findByIdentifier($email);
 
         // 3 — first sign-in: create the account.
-        $user ??= $this->createUser($email, $name, $profile['nickname'] ?? null);
+        $user ??= $this->createUser($email, $name, $profile['nickname'] ?? null, $tenantId);
 
         $this->identities->link($provider, $providerUserId, $user->id, $email, $name, $avatar);
 
@@ -94,7 +101,7 @@ final class SocialLoginService
 
     // ── Internals ───────────────────────────────────────────────────────────────
 
-    private function createUser(string $email, ?string $name, ?string $nickname): UserDTO
+    private function createUser(string $email, ?string $name, ?string $nickname, string $tenantId): UserDTO
     {
         $profile = [];
         if (\is_string($name) && trim($name) !== '') {
@@ -111,6 +118,7 @@ final class SocialLoginService
             // Social accounts have no local password — mint an unguessable one.
             // The user can set a real one later through the reset flow.
             password: 'A1!' . bin2hex(random_bytes(24)),
+            tenantId: $tenantId,
             profile:  $profile,
         );
 
@@ -123,7 +131,10 @@ final class SocialLoginService
             // Non-fatal: the account just stays pending verification.
         }
 
-        $user = $this->users->findByIdentifier($email,true);
+        // No membership filter: this only needs the account that was just
+        // created. Whether it may sign in on THIS tenant is decided by the
+        // caller's login step, the same check a password login goes through.
+        $user = $this->users->findByIdentifier($email);
         if ($user === null) {
             throw new ServiceException('social_auth.register.lookup_failed', layer: 'service.social_auth');
         }

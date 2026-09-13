@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Plugins\SocialAuth\Socialite\Http;
 
 use AlfacodeTeam\PhpServicePlatform\Kernel\Http\Request as KernelRequest;
+use AlfacodeTeam\PhpServicePlatform\Kernel\Ports\SessionPort;
 
 /**
  * Stateful request wrapper the OAuth providers expect.
@@ -23,9 +24,13 @@ class Request
         $this->session ??= new Session();
     }
 
-    public static function fromKernel(KernelRequest $request): self
+    /**
+     * Pass the request's SessionPort: without it the OAuth state falls back to
+     * native PHP sessions (see Session for why that fails under OpenSwoole).
+     */
+    public static function fromKernel(KernelRequest $request, ?SessionPort $session = null): self
     {
-        return new self(array_merge($request->queryAll(), $request->all()));
+        return new self(array_merge($request->queryAll(), $request->all()), new Session($session));
     }
 
     public function input(string $key, mixed $default = null): mixed

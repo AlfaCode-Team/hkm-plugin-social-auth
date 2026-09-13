@@ -10,7 +10,6 @@ use AlfacodeTeam\PhpServicePlatform\Kernel\Events\EventBus;
 use AlfacodeTeam\PhpServicePlatform\Kernel\Pipelines\Cli\CliPipeline;
 use AlfacodeTeam\PhpServicePlatform\Kernel\Pipelines\Http\HttpPipeline;
 use AlfacodeTeam\PhpServicePlatform\Kernel\Pipelines\Worker\WorkerPipeline;
-use AlfacodeTeam\PhpServicePlatform\Kernel\Ports\DatabasePort;
 use AlfacodeTeam\PhpServicePlatform\Kernel\Ports\HttpClientPort;
 use AlfacodeTeam\PhpServicePlatform\Kernel\Ports\SessionPort;
 use Plugins\Auth\API\Contracts\AuthServiceContract;
@@ -56,17 +55,24 @@ final class Provider implements ModuleContract
 
     public function register(ModuleContainer $container): void
     {
-        $container->bind(SocialAuthServiceContract::class, static function () {
+        $container->bind(SocialAuthServiceContract::class, static function (ModuleContainer $c) {
             return new SocialAuthService(
                 config: self::buildConfig(),
                 baseUrl: env('SOCIAL_AUTH_BASE_URL') ?: '',
+                // The OAuth state + PKCE verifier ride in the application's own
+                // session. Unbound (no Session module) → native PHP sessions.
+                session: $c->has(SessionPort::class) ? $c->make(SessionPort::class) : null,
             );
         });
 
-        // Provider-account → user links (central — control-plane table).
+        // Provider-account → user links. CENTRAL, like the `users` table the
+        // migration's foreign key points at — so pinned to the ConnectionManager
+        // default rather than the request's DatabasePort, which Tenancy rebinds
+        // to the tenant database on a tenant host (where this table does not
+        // exist). Same pinning the User plugin applies to `users` itself.
         $container->bindInternal(SocialIdentityRepository::class, static fn(ModuleContainer $c) =>
             new SocialIdentityRepository(
-                $c->make(DatabasePort::class),
+                $c->make(DatabaseConnectionManagerContract::class)->default(),
             )
         );
 
@@ -98,6 +104,7 @@ final class Provider implements ModuleContract
                 session:         $c->make(SessionPort::class),
                 accessTtl:       (int) (env('AUTH_MOBILE_ACCESS_TTL') ?: 3600),
                 successRedirect: env('SOCIAL_AUTH_SUCCESS_REDIRECT') ?: '/',
+                failureRedirect: env('SOCIAL_AUTH_FAILURE_REDIRECT') ?: '/login',
             )
         );
     }
@@ -118,13 +125,17 @@ final class Provider implements ModuleContract
         foreach (['github', 'google', 'facebook', 'gitlab', 'bitbucket', 'linkedin', 'slack', 'x'] as $driver) {
             $prefix = strtoupper($driver);
             $id = env("{$prefix}_CLIENT_ID");
-            if ($id === false || $id === '') {
+            if ($id === false || $id === null || $id === '') {
                 continue;
             }
             $services[$driver] = [
                 'client_id'     => $id,
                 'client_secret' => env("{$prefix}_CLIENT_SECRET") ?: '',
-                'redirect'      => env("{$prefix}_REDIRECT_URI") ?: '',
+                // Relative by default: resolved against the host the browser is
+                // on (or SOCIAL_AUTH_BASE_URL when set), so one configuration
+                // serves every host a project answers on. The path is this
+                // plugin's own callback route (module.json routePrefix + path).
+                'redirect'      => env("{$prefix}_REDIRECT_URI") ?: "/auth/social/{$driver}/callback",
             ];
         }
 

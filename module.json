@@ -17,11 +17,12 @@
     "emits": [],
     "listens": [],
 
-    "documentation": "Social sign-in, end to end: GET /auth/social/{driver} redirects to the provider, the callback maps the profile onto a central user (linked identity -> email match -> create) and opens a platform session (web) or returns a JWT+refresh pair (?mode=token). POST /auth/social/{driver}/token verifies a native-SDK token (google access_token/id_token, apple identity_token vs JWKS) for mobile. Links live in central social_identities.",
+    "documentation": "Social sign-in, end to end: GET /auth/social/{driver} redirects to the provider, the callback maps the profile onto a central user (linked identity -> email match -> create) and opens a platform session through Auth's `web` guard (web; a failure redirects to SOCIAL_AUTH_FAILURE_REDIRECT?social_error=<slug>) or returns a JWT+refresh pair (?mode=token). POST /auth/social/{driver}/token verifies a native-SDK token (google access_token/id_token, apple identity_token vs JWKS) for mobile. Links live in central social_identities.",
 
     "config": [
         { "key": "SOCIAL_AUTH_BASE_URL",         "type": "string", "required": false },
         { "key": "SOCIAL_AUTH_SUCCESS_REDIRECT", "type": "string", "required": false },
+        { "key": "SOCIAL_AUTH_FAILURE_REDIRECT", "type": "string", "required": false, "default": "/login" },
         { "key": "AUTH_MOBILE_ACCESS_TTL",       "type": "int",    "required": false },
         { "key": "GITHUB_CLIENT_ID",     "type": "string", "required": false },
         { "key": "GITHUB_CLIENT_SECRET", "type": "string", "required": false },
