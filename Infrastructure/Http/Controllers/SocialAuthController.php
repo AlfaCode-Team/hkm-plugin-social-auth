@@ -11,6 +11,7 @@ use AlfacodeTeam\PhpServicePlatform\Kernel\Ports\LoggerPort;
 use AlfacodeTeam\PhpServicePlatform\Kernel\Ports\SessionPort;
 use Plugins\Auth\API\Contracts\AuthServiceContract;
 use Plugins\Auth\API\Contracts\RefreshTokenServiceContract;
+use Plugins\Auth\Infrastructure\Http\Controllers\SessionStartController;
 use Plugins\Session\Infrastructure\Http\StartSessionStage;
 use Plugins\SocialAuth\API\Contracts\SocialAuthServiceContract;
 use Plugins\SocialAuth\Application\Services\SocialLoginService;
@@ -117,8 +118,32 @@ final class SocialAuthController extends ApiController
         // when there is one (relative path only — open-redirect guard), else the
         // configured default.
         $previous = $this->session->pull(StartSessionStage::PREVIOUS_URL);
+        $target   = self::isRelativePath($previous) ? $previous : $this->successRedirect;
 
-        return Response::redirect(self::isRelativePath($previous) ? $previous : $this->successRedirect);
+        return Response::redirect($this->throughSessionStart($target));
+    }
+
+    /**
+     * Route the browser through the Auth plugin's session initializer
+     * (GET /auth/session/start, Auth >= 1.9.0), exactly as a password login
+     * does: the first page view of the new session is where other plugins —
+     * Tenancy stamping the signed-in user into its cookie — set up their
+     * per-user state. The marker is what makes the initializer announce the
+     * sign-in rather than just redirect on.
+     *
+     * Against an older Auth, or with AUTH_SESSION_START off, the target is
+     * returned unchanged — the redirect this controller always made.
+     */
+    private function throughSessionStart(string $target): string
+    {
+        if (!class_exists(SessionStartController::class)
+            || \in_array(strtolower(trim((string) (env('AUTH_SESSION_START') ?? '1'))), ['0', 'false', 'off', 'no'], true)) {
+            return $target;
+        }
+
+        $this->session->put(SessionStartController::PENDING, true);
+
+        return SessionStartController::through($target);
     }
 
     public function token(string $driver): Response
